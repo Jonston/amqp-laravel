@@ -32,6 +32,9 @@
     "laravel": {
       "providers": [
         "Jonston\\AmqpLaravel\\AMQPServiceProvider"
+      ],
+      "commands": [
+        "Jonston\\AmqpLaravel\\Console\\Commands\\AMQPSetupCommand"
       ]
     }
   }

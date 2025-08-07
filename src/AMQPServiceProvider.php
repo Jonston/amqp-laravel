@@ -3,6 +3,7 @@
 namespace Jonston\AmqpLaravel;
 
 use Illuminate\Support\ServiceProvider;
+use Jonston\AmqpLaravel\Console\Commands\AMQPSetupCommand;
 
 class AMQPServiceProvider extends ServiceProvider
 {
@@ -11,6 +12,12 @@ class AMQPServiceProvider extends ServiceProvider
         $this->app->singleton(AMQPService::class, function ($app) {
             return new AMQPService();
         });
+        
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                AMQPSetupCommand::class,
+            ]);
+        }
     }
 
     public function boot(): void
