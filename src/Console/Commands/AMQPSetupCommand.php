@@ -13,8 +13,9 @@ class AMQPSetupCommand extends Command
     public function handle(AMQPService $amqpService): int
     {
         try {
-            if (app()->environment('production') && !$this->option('force')) {
+            if (app()->environment('production') && ! $this->option('force')) {
                 $this->warn('Skipping queue setup in production. Use --force to override.');
+
                 return 0;
             }
 
