@@ -59,4 +59,58 @@ class AMQPServiceTest extends TestCase
         $this->assertEquals(1234, $portProperty->getValue($service));
         $this->assertEquals('test-user', $userProperty->getValue($service));
     }
+
+    public function test_publish_message()
+    {
+        $mockChannel = Mockery::mock('PhpAmqpLib\Channel\AMQPChannel');
+        $mockChannel->shouldReceive('exchange_declare')->once()->with('test-exchange', 'direct', false, true, false);
+        $mockChannel->shouldReceive('basic_publish')->once();
+
+        $service = Mockery::mock(AMQPService::class)->makePartial();
+        $service->shouldReceive('getChannel')->andReturn($mockChannel);
+
+        $service->publish('test-exchange', 'test-key', 'test-message', 'direct');
+
+        $mockChannel->shouldHaveReceived('exchange_declare')->with('test-exchange', 'direct', false, true, false)->once();
+        $mockChannel->shouldHaveReceived('basic_publish')->once();
+        $this->assertTrue(true);
+    }
+
+    public function test_consume_message_with_exchange()
+    {
+        $mockChannel = Mockery::mock('PhpAmqpLib\Channel\AMQPChannel');
+        $mockChannel->shouldReceive('exchange_declare')->once()->with('test-exchange', 'fanout', false, true, false);
+        $mockChannel->shouldReceive('queue_declare')->once()->with('test-queue', false, true, false, false);
+        $mockChannel->shouldReceive('queue_bind')->once()->with('test-queue', 'test-exchange', 'test-key');
+        $mockChannel->shouldReceive('basic_consume')->once();
+        $mockChannel->shouldReceive('is_consuming')->andReturn(false);
+
+        $service = Mockery::mock(AMQPService::class)->makePartial();
+        $service->shouldReceive('getChannel')->andReturn($mockChannel);
+
+        $service->consume('test-queue', function () {}, 'test-exchange', 'fanout', 'test-key');
+
+        $mockChannel->shouldHaveReceived('exchange_declare')->with('test-exchange', 'fanout', false, true, false)->once();
+        $mockChannel->shouldHaveReceived('queue_declare')->with('test-queue', false, true, false, false)->once();
+        $mockChannel->shouldHaveReceived('queue_bind')->with('test-queue', 'test-exchange', 'test-key')->once();
+        $mockChannel->shouldHaveReceived('basic_consume')->once();
+        $this->assertTrue(true);
+    }
+
+    public function test_consume_message_without_exchange()
+    {
+        $mockChannel = Mockery::mock('PhpAmqpLib\Channel\AMQPChannel');
+        $mockChannel->shouldReceive('queue_declare')->once()->with('test-queue', false, true, false, false);
+        $mockChannel->shouldReceive('basic_consume')->once();
+        $mockChannel->shouldReceive('is_consuming')->andReturn(false);
+
+        $service = Mockery::mock(AMQPService::class)->makePartial();
+        $service->shouldReceive('getChannel')->andReturn($mockChannel);
+
+        $service->consume('test-queue', function () {});
+
+        $mockChannel->shouldHaveReceived('queue_declare')->with('test-queue', false, true, false, false)->once();
+        $mockChannel->shouldHaveReceived('basic_consume')->once();
+        $this->assertTrue(true);
+    }
 }
