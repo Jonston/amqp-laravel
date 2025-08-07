@@ -114,6 +114,135 @@ class AMQPService
         }
     }
 
+    /**
+     * Декларация обменника.
+     *
+     * @param string $exchange
+     * @param string $type
+     * @param bool $passive
+     * @param bool $durable
+     * @param bool $autoDelete
+     * @param bool $internal
+     * @param bool $nowait
+     * @param array $arguments
+     * @throws \Exception
+     */
+    public function declareExchange(
+        string $exchange,
+        string $type = 'direct',
+        bool $passive = false,
+        bool $durable = true,
+        bool $autoDelete = false,
+        bool $internal = false,
+        bool $nowait = false,
+        array $arguments = []
+    ): void {
+        $this->getChannel()->exchange_declare(
+            $exchange,
+            $type,
+            $passive,
+            $durable,
+            $autoDelete,
+            $internal,
+            $nowait,
+            $arguments
+        );
+    }
+
+    /**
+     * Декларация очереди.
+     *
+     * @param string $queue
+     * @param bool $passive
+     * @param bool $durable
+     * @param bool $exclusive
+     * @param bool $autoDelete
+     * @param bool $nowait
+     * @param array $arguments
+     * @throws \Exception
+     */
+    public function declareQueue(
+        string $queue,
+        bool $passive = false,
+        bool $durable = true,
+        bool $exclusive = false,
+        bool $autoDelete = false,
+        bool $nowait = false,
+        array $arguments = []
+    ): void {
+        $this->getChannel()->queue_declare(
+            $queue,
+            $passive,
+            $durable,
+            $exclusive,
+            $autoDelete,
+            $nowait,
+            $arguments
+        );
+    }
+
+    /**
+     * Привязка очереди к обменнику.
+     *
+     * @param string $queue
+     * @param string $exchange
+     * @param string $routingKey
+     * @throws \Exception
+     */
+    public function bindQueue(
+        string $queue,
+        string $exchange,
+        string $routingKey = ''
+    ): void {
+        $this->getChannel()->queue_bind($queue, $exchange, $routingKey);
+    }
+
+    /**
+     * Настройка AMQP инфраструктуры на основе конфига.
+     *
+     * @throws \Exception
+     */
+    public function setupFromConfig(): void
+    {
+        $exchanges = config('amqp.exchanges', []);
+        foreach ($exchanges as $exchangeName => $exchangeConfig) {
+            $this->declareExchange(
+                $exchangeName,
+                $exchangeConfig['type'] ?? 'direct',
+                $exchangeConfig['passive'] ?? false,
+                $exchangeConfig['durable'] ?? true,
+                $exchangeConfig['auto_delete'] ?? false,
+                $exchangeConfig['internal'] ?? false,
+                $exchangeConfig['nowait'] ?? false,
+                $exchangeConfig['arguments'] ?? []
+            );
+        }
+
+        $queues = config('amqp.queues', []);
+        foreach ($queues as $queueName => $queueConfig) {
+            $this->declareQueue(
+                $queueName,
+                $queueConfig['passive'] ?? false,
+                $queueConfig['durable'] ?? true,
+                $queueConfig['exclusive'] ?? false,
+                $queueConfig['auto_delete'] ?? false,
+                $queueConfig['nowait'] ?? false,
+                $queueConfig['arguments'] ?? []
+            );
+
+            if (!empty($queueConfig['exchange'])) {
+                $this->bindQueue(
+                    $queueName,
+                    $queueConfig['exchange'],
+                    $queueConfig['routing_key'] ?? ''
+                );
+            }
+        }
+    }
+
+    /**
+     * @throws \Exception
+     */
     public function close(): void
     {
         if ($this->channel && $this->channel->is_open()) {
@@ -125,6 +254,9 @@ class AMQPService
         }
     }
 
+    /**
+     * @throws \Exception
+     */
     public function __destruct()
     {
         $this->close();

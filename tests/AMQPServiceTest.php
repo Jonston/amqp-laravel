@@ -113,4 +113,85 @@ class AMQPServiceTest extends TestCase
         $mockChannel->shouldHaveReceived('basic_consume')->once();
         $this->assertTrue(true);
     }
+
+    public function test_declare_exchange()
+    {
+        $mockChannel = Mockery::mock('PhpAmqpLib\Channel\AMQPChannel');
+        $mockChannel->shouldReceive('exchange_declare')
+            ->once()
+            ->with('my-exchange', 'topic', false, true, false, false, false, []);
+
+        $service = Mockery::mock(AMQPService::class)->makePartial();
+        $service->shouldReceive('getChannel')->andReturn($mockChannel);
+
+        $service->declareExchange('my-exchange', 'topic');
+        $mockChannel->shouldHaveReceived('exchange_declare')->with('my-exchange', 'topic', false, true, false, false, false, [])->once();
+        $this->assertTrue(true);
+    }
+
+    public function test_declare_queue()
+    {
+        $mockChannel = Mockery::mock('PhpAmqpLib\Channel\AMQPChannel');
+        $mockChannel->shouldReceive('queue_declare')
+            ->once()
+            ->with('my-queue', false, true, false, false, false, []);
+
+        $service = Mockery::mock(AMQPService::class)->makePartial();
+        $service->shouldReceive('getChannel')->andReturn($mockChannel);
+
+        $service->declareQueue('my-queue');
+        $mockChannel->shouldHaveReceived('queue_declare')->with('my-queue', false, true, false, false, false, [])->once();
+        $this->assertTrue(true);
+    }
+
+    public function test_bind_queue()
+    {
+        $mockChannel = Mockery::mock('PhpAmqpLib\Channel\AMQPChannel');
+        $mockChannel->shouldReceive('queue_bind')
+            ->once()
+            ->with('my-queue', 'my-exchange', 'my-key');
+
+        $service = Mockery::mock(AMQPService::class)->makePartial();
+        $service->shouldReceive('getChannel')->andReturn($mockChannel);
+
+        $service->bindQueue('my-queue', 'my-exchange', 'my-key');
+        $mockChannel->shouldHaveReceived('queue_bind')->with('my-queue', 'my-exchange', 'my-key')->once();
+        $this->assertTrue(true);
+    }
+
+    public function test_setup_from_config()
+    {
+        config([
+            'amqp.exchanges' => [
+                'ex1' => ['type' => 'fanout', 'durable' => true],
+                'ex2' => ['type' => 'direct', 'durable' => false],
+            ],
+            'amqp.queues' => [
+                'q1' => ['durable' => true, 'exchange' => 'ex1', 'routing_key' => 'rk1'],
+                'q2' => ['durable' => false],
+            ],
+        ]);
+
+        $service = Mockery::mock(AMQPService::class)->makePartial();
+
+        $service->shouldReceive('declareExchange')
+            ->once()->with('ex1', 'fanout', false, true, false, false, false, []);
+        $service->shouldReceive('declareExchange')
+            ->once()->with('ex2', 'direct', false, false, false, false, false, []);
+        $service->shouldReceive('declareQueue')
+            ->once()->with('q1', false, true, false, false, false, []);
+        $service->shouldReceive('declareQueue')
+            ->once()->with('q2', false, false, false, false, false, []);
+        $service->shouldReceive('bindQueue')
+            ->once()->with('q1', 'ex1', 'rk1');
+
+        $service->setupFromConfig();
+
+        $service->shouldHaveReceived('declareExchange')->with('ex1', 'fanout', false, true, false, false, false, [])->once();
+        $service->shouldHaveReceived('declareExchange')->with('ex2', 'direct', false, false, false, false, false, [])->once();
+        $service->shouldHaveReceived('declareQueue')->with('q1', false, true, false, false, false, [])->once();
+        $service->shouldHaveReceived('declareQueue')->with('q2', false, false, false, false, false, [])->once();
+        $service->shouldHaveReceived('bindQueue')->with('q1', 'ex1', 'rk1')->once();
+        $this->assertTrue(true);
+    }
 }
